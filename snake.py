@@ -1,123 +1,142 @@
 import pygame
-import sys
 import random
+import sys
 import time
 
-field_size = 500
-block = 10
-difficulty_level = 10
-score = 0
-window = pygame.display.set_mode((500,500))
-clock = pygame.time.Clock()
+from pygame.math import Vector2
 
-class Snake():
+CELLCOUNT = 50
+CELLSIZE = 10
 
-	def   __init__(self):
-		self.curdir = "RIGHT"
-		self.position = [field_size/2, field_size/2]
-		self.body = [[field_size/2,field_size/2],[(field_size/2)-10, field_size/2],[(field_size/2)-20,field_size/2]]
-		#self.changeDirection = self.curdir
+FPS = 60
 
-	def changeDir(self, newdir):
-		if newdir == "RIGHT" and not self.curdir == "LEFT":
-			self.curdir = "RIGHT"
-		elif newdir == "LEFT" and not self.curdir == "RIGHT":
-			self.curdir = "LEFT"
-		elif newdir == "UP" and not self.curdir == "DOWN":
-			self.curdir = "UP"
-		elif newdir == "DOWN" and not self.curdir == "UP":
-			self.curdir = "DOWN"
+class Fruit:
 
-	def foodCollisionCheck(self,foodhere):
-		if self.curdir == "RIGHT":
-			self.position[0] += block
-		if self.curdir == "LEFT":
-			self.position[0]-= block
-		if self.curdir == "UP":
-			self.position[1] -= block
-		if self.curdir == "DOWN":
-			self.position[1] += block
-		self.body.insert(0,list(self.position))
-		if self.position == foodhere:
+	def __init__(self):
+		self.setPosition()
+
+	# Draw fruit on the window
+	def drawFruit(self):
+		window = pygame.display.get_surface()
+		draw = pygame.Rect(self.pos.x*CELLSIZE, self.pos.y*CELLSIZE, CELLSIZE, CELLSIZE)
+		pygame.draw.rect(window,(255,0,0),draw)
+
+	# Change position of fruit after it's eaten by snake
+	def setPosition(self):
+		self.x = random.randint(0,CELLCOUNT-1)
+		self.y = random.randint(0,CELLCOUNT-1)
+		self.pos = Vector2(self.x, self.y)
+
+
+class Snake:
+
+	def __init__(self):
+		self.body = [Vector2(CELLCOUNT//2,CELLCOUNT//2), Vector2((CELLCOUNT//2)-1,CELLCOUNT//2), Vector2((CELLCOUNT//2)-2,CELLCOUNT//2)]
+		self.dir = Vector2(1,0)
+
+	# Draw snake on the window
+	def drawSnake(self):
+		window = pygame.display.get_surface()
+		for block in self.body:
+			draw = pygame.Rect(block.x*CELLSIZE, block.y*CELLSIZE, CELLSIZE, CELLSIZE)
+			pygame.draw.rect(window,(41,202,0),draw)
+
+	# Move the snake and update it's position on the window
+	def moveSnake(self):
+		curBody = self.body[:-1]
+		curBody.insert(0,curBody[0] + self.dir)
+		self.body = curBody
+
+	# Make the snake larger after it eats a fruit
+	def addToSnake(self):
+		curBody = self.body
+		curBody.insert(0,curBody[0] + self.dir)
+		self.body = curBody
+
+	# Change snake'ss direction
+	def changeDir(self, vec):
+		self.dir = vec
+
+
+class Game:
+
+	def __init__(self):
+		pygame.init()
+		self.window = pygame.display.set_mode((CELLCOUNT*CELLSIZE, CELLCOUNT*CELLSIZE))
+		pygame.display.set_caption("Snake AI")
+		self.clock = pygame.time.Clock()
+
+
+	# Check if snake collides with food
+	def checkFoodCollision(self, snake, fruit):
+		if snake.body[0] == fruit.pos:
+			fruit.setPosition()
+			snake.addToSnake()
+
+	# Return true if snake collides with wall
+	def checkWallCollision(self, snake):
+		if not 0 <= snake.body[0].x < CELLCOUNT or not 0 <= snake.body[0].y < CELLCOUNT:
 			return True
-		else:
-			self.body.pop()
-			return False
+		return False
 
-	def wallCollisionCheck(self):
-		if self.position[0] >= field_size or self.position[0] <= 0:
-			return True
-
-		elif self.position[1] >= field_size or self.position[1] <= 0:
-			return True
-
-		else:
-			return False
-
-	def selfCollisionCheck(self):
-		for bodysegment in self.body[1:]:
-			if self.position == bodysegment:
+	# Return true if snake collides with itself
+	def checkSelfCollision(self, snake):
+		for segment in snake.body[1:]:
+			if snake.body[0] == segment:
 				return True
 		return False
 
-	def getHead(self):
-		return self.position
+	# Ends the game
+	def gameOver(self):
+		pygame.display.quit()
+		pygame.quit()
+		sys.exit()
 
-	def getBody(self):
-		return self.body
+	def run(self):
 
-class Food():
+		# Create instances for snake and fruit
+		snake = Snake()
+		fruit = Fruit()
 
-	def __init__(self):
-		self.position = [random.randrange(1,field_size/block)*block, random.randrange(1,field_size/block)*block]
-		self.foodpresent = True
+		# Create update event to move the snake and check for changes to game state
+		screenUpdate = pygame.USEREVENT
+		pygame.time.set_timer(screenUpdate, 90)
 
-	def spawnfood(self):
-		if self.foodpresent == False:
-			if self.position == snake.position:
-				self.position = [random.randrange(1,field_size/block)*block, random.randrange(1,field_size/block)*block]
-			self.foodpresent = True
-		return self.position
+		# Game loop
+		while True:
 
-	def setfood(self, boolean):
-		self.foodpresent = boolean
+			for event in pygame.event.get():
 
-snake = Snake()
-food = Food()
+				# Close pygame if window is closed
+				if event.type == pygame.QUIT:
+					pygame.display.quit()
+					pygame.quit()
+					sys.exit()
 
-def gameover(score):
-	pygame.quit()
-	print("You scored > " + str(score))
-	sys.exit(0)
+				# Update event previously created
+				if event.type == screenUpdate:
+					self.checkFoodCollision(snake,fruit)
+					if self.checkWallCollision(snake) or self.checkSelfCollision(snake):
+						self.gameOver()
+					snake.moveSnake()
 
-while True:
-	if snake.wallCollisionCheck() or snake.selfCollisionCheck():
-		gameover(score)
+				# Read player input
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_UP and snake.dir != Vector2(0,1):
+						snake.changeDir(Vector2(0,-1))
+					if event.key == pygame.K_DOWN and snake.dir != Vector2(0,-1):
+						snake.changeDir(Vector2(0,1))
+					if event.key == pygame.K_LEFT and snake.dir !=  Vector2(1,0):
+						snake.changeDir(Vector2(-1,0))
+					if event.key == pygame.K_RIGHT and snake.dir != Vector2(-1,0):
+						snake.changeDir(Vector2(1,0))
 
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			gameover()
-		if event.type == pygame.KEYDOWN:
-			if event.key == pygame.K_RIGHT:
-				snake.changeDir("RIGHT")
-			elif event.key == pygame.K_LEFT:
-				snake.changeDir("LEFT")
-			elif event.key == pygame.K_UP:
-				snake.changeDir("UP")
-			elif event.key == pygame.K_DOWN:
-				snake.changeDir("DOWN")
+			self.window.fill('black')
+			snake.drawSnake()
+			fruit.drawFruit()
+			pygame.display.update()
+			self.clock.tick(FPS)
 
-	foodposition = food.spawnfood()
-	if (snake.foodCollisionCheck(foodposition)):
-		score += 1
-		food.setfood(False)
-
-	window.fill(pygame.Color(0,0,0))
-	for bodysegment in snake.getBody():
-		pygame.draw.rect(window, pygame.Color(255,255,255), pygame.Rect(bodysegment[0], bodysegment[1], 10, 10)) 
-
-	pygame.draw.rect(window, pygame.Color(225,0,0), pygame.Rect(foodposition[0], foodposition[1], 10, 10))
-	pygame.display.set_caption("Snake in Python? Ironic | Score > " + str(score))
-	pygame.display.flip()
-	clock.tick(difficulty_level)
-
+if __name__ == "__main__":
+	game = Game()
+	game.run()
