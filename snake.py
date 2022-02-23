@@ -53,7 +53,7 @@ class Snake:
 		curBody.insert(0,curBody[0] + self.dir)
 		self.body = curBody
 
-	# Change snake'ss direction
+	# Change snake's direction
 	def changeDir(self, vec):
 		self.dir = vec
 
